@@ -8,7 +8,7 @@ import warnings
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="캐나다 환율 모니터", page_icon="🇨🇦", layout="wide")
 
-# 브라우저 번역 방지 태그
+# 브라우저 번역 방지 메타 데이터
 st.markdown('<html lang="ko">', unsafe_allow_html=True)
 
 st.title("🇨🇦 실시간 CAD/KRW 환율 모니터")
@@ -39,7 +39,7 @@ try:
         ax.grid(True, linestyle='--', alpha=0.5)
         st.pyplot(fig)
 
-        # 3. 일자별 환율 상세 리스트 (글자색 및 화살표 적용)
+        # 3. 일자별 환율 상세 리스트 (요청하신 화살표 및 글자색 적용)
         st.subheader("📅 일자별 환율 상세 내역")
         
         display_df = pd.DataFrame(prices)
@@ -47,8 +47,8 @@ try:
         display_df['전일대비'] = display_df['환율(종가)'].diff()
         display_df = display_df.sort_index(ascending=False)
 
-        # 등락에 따른 화살표 및 글자색 설정 함수
-        def format_delta(val):
+        # 등락에 따른 화살표 및 글자색 지정 함수
+        def format_delta_text(val):
             if val > 0:
                 return f"▲ {val:+.2f}"
             elif val < 0:
@@ -56,23 +56,20 @@ try:
             else:
                 return f"{val:,.2f}"
 
-        def color_delta(val):
-            # 숫자로 변환 가능한 경우만 색상 지정
-            try:
-                num = float(val.split()[-1]) if isinstance(val, str) else val
-                if num > 0: return 'color: red; font-weight: bold;'
-                if num < 0: return 'color: blue; font-weight: bold;'
-            except:
-                pass
+        def style_delta_color(val):
+            if '▲' in str(val):
+                return 'color: red; font-weight: bold;'
+            elif '▼' in str(val):
+                return 'color: blue; font-weight: bold;'
             return ''
 
-        # 데이터 변환 (화살표 추가)
-        display_df['전일대비'] = display_df['전일대비'].apply(format_delta)
+        # 전일대비 열 가공 (화살표 추가)
+        display_df['전일대비'] = display_df['전일대비'].apply(format_delta_text)
 
-        # 테이블 출력
+        # 테이블 출력 (map 사용하여 최신 버전 호환)
         st.dataframe(
             display_df.style.format({"환율(종가)": "{:,.2f}"})
-            .applymap(color_delta, subset=['전일대비']),
+            .map(style_delta_color, subset=['전일대비']),
             use_container_width=True
         )
 
