@@ -15,17 +15,18 @@ ticker = "CADKRW=X"
 try:
     # 2026년 1월부터 데이터 로드
     df = yf.download(ticker, start="2026-01-01", auto_adjust=True)
+    
     if not df.empty:
-        # 데이터 정리
-        prices = df['Close']
-        df_sorted = df.sort_index(ascending=False) # 최신순 정렬
+        # 데이터 정리 (형식 오류 방지를 위한 안전한 추출)
+        prices = df['Close'].astype(float) 
+        df_sorted = df.sort_index(ascending=False)
         
-        # 현재 환율 계산
+        # 현재 환율 및 전일 환율 추출 (데이터 타입 에러 수정)
         current_val = float(prices.iloc[-1])
         prev_val = float(prices.iloc[-2]) if len(prices) > 1 else current_val
         delta = current_val - prev_val
 
-        # 상단 메트릭 표시 (등락폭 추가)
+        # 상단 메트릭 표시
         st.metric(label="현재 환율 (1 CAD)", 
                   value=f"{current_val:,.2f} 원", 
                   delta=f"{delta:+.2f} 원")
@@ -33,27 +34,26 @@ try:
         # 2. 그래프 그리기
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.plot(prices.index, prices, color='#0077b6', linewidth=2)
-        ax.fill_between(prices.index, prices.values.flatten(), color='#0077b6', alpha=0.1)
+        ax.fill_between(prices.index, prices.values, color='#0077b6', alpha=0.1)
         ax.set_ylim(1000, 1100)
         ax.grid(True, linestyle='--', alpha=0.5)
         st.pyplot(fig)
 
-        # 3. 일자별 등락 리스트 추가
+        # 3. 일자별 환율 상세 리스트
         st.subheader("📅 일자별 환율 상세 내역")
         
-        # 데이터프레임 가공 (날짜, 종가, 전일대비 등락)
-        display_df = df[['Close']].copy()
+        # 표 데이터 가공
+        display_df = pd.DataFrame(prices)
         display_df['전일대비'] = display_df['Close'].diff()
-        display_df = display_df.sort_index(ascending=False) # 최신 날짜가 위로
+        display_df = display_df.sort_index(ascending=False)
 
-        # 테이블 스타일링 및 출력
+        # 테이블 출력
         st.dataframe(
-            display_df.style.format("{:,.2f}")
-            .background_gradient(subset=['전일대비'], cmap='RdYlGn_r'), # 등락에 따라 색상 부여
+            display_df.style.format("{:,.2f}"),
             use_container_width=True
         )
 
-        st.info("💡 위 표에서 '전일대비'가 플러스면 환율 상승, 마이너스면 하락을 의미합니다.")
+        st.info("💡 Halsey Ave 댁에서 확인하는 실시간 환율 정보입니다.")
     else:
         st.error("데이터를 가져오지 못했습니다.")
 except Exception as e:
