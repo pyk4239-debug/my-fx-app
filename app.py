@@ -7,7 +7,7 @@ import warnings
 # 1. 페이지 및 설치 이름 설정 (폰에서 '설치'할 때 이 이름으로 뜹니다)
 warnings.filterwarnings('ignore')
 st.set_page_config(
-    page_title="캐나다 환율",  # 휴대폰 설치 시 앱 이름
+    page_title="canada fx",  # 휴대폰 설치 시 앱 이름
     page_icon="🇨🇦",
     layout="wide"
 )
