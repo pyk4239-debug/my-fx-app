@@ -36,7 +36,7 @@ try:
         ax.grid(True, linestyle='--', alpha=0.5)
         st.pyplot(fig)
 
-        # 3. 일자별 환율 상세 리스트 (색상 추가 버전)
+        # 3. 일자별 환율 상세 리스트 (최신 버전 호환 색상 추가)
         st.subheader("📅 일자별 환율 상세 내역")
         
         display_df = pd.DataFrame(prices)
@@ -44,19 +44,17 @@ try:
         display_df['전일대비'] = display_df['환율(종가)'].diff()
         display_df = display_df.sort_index(ascending=False)
 
-        # 색상 지정 함수 (플러스는 빨강, 마이너스는 초록)
+        # 색상 지정 함수 (플러스는 연한 빨강, 마이너스는 연한 초록)
         def color_delta(val):
             if val > 0:
-                color = '#ffcccc' # 연한 빨강
+                return 'background-color: #ffcccc' # 상승 (빨강)
             elif val < 0:
-                color = '#ccffcc' # 연한 초록
-            else:
-                color = 'white'
-            return f'background-color: {color}'
+                return 'background-color: #ccffcc' # 하락 (초록)
+            return ''
 
-        # 테이블 스타일 적용 출력
+        # 테이블 스타일 적용 (applymap 대신 map 사용으로 오류 해결)
         st.dataframe(
-            display_df.style.format("{:,.2f}").applymap(color_delta, subset=['전일대비']),
+            display_df.style.format("{:,.2f}").map(color_delta, subset=['전일대비']),
             use_container_width=True
         )
 
