@@ -6,7 +6,10 @@ import warnings
 
 # 설정 및 경고 무시
 warnings.filterwarnings('ignore')
-st.set_page_config(page_title="캐나다 환율 모니터", page_icon="🇨🇦")
+st.set_page_config(page_title="캐나다 환율 모니터", page_icon="🇨🇦", layout="wide")
+
+# 브라우저 번역 방지 태그
+st.markdown('<html lang="ko">', unsafe_allow_html=True)
 
 st.title("🇨🇦 실시간 CAD/KRW 환율 모니터")
 
@@ -36,7 +39,7 @@ try:
         ax.grid(True, linestyle='--', alpha=0.5)
         st.pyplot(fig)
 
-        # 3. 일자별 환율 상세 리스트 (최신 버전 호환 색상 추가)
+        # 3. 일자별 환율 상세 리스트 (글자색 및 화살표 적용)
         st.subheader("📅 일자별 환율 상세 내역")
         
         display_df = pd.DataFrame(prices)
@@ -44,21 +47,36 @@ try:
         display_df['전일대비'] = display_df['환율(종가)'].diff()
         display_df = display_df.sort_index(ascending=False)
 
-        # 색상 지정 함수 (플러스는 연한 빨강, 마이너스는 연한 초록)
-        def color_delta(val):
+        # 등락에 따른 화살표 및 글자색 설정 함수
+        def format_delta(val):
             if val > 0:
-                return 'background-color: #ffcccc' # 상승 (빨강)
+                return f"▲ {val:+.2f}"
             elif val < 0:
-                return 'background-color: #ccffcc' # 하락 (초록)
+                return f"▼ {val:+.2f}"
+            else:
+                return f"{val:,.2f}"
+
+        def color_delta(val):
+            # 숫자로 변환 가능한 경우만 색상 지정
+            try:
+                num = float(val.split()[-1]) if isinstance(val, str) else val
+                if num > 0: return 'color: red; font-weight: bold;'
+                if num < 0: return 'color: blue; font-weight: bold;'
+            except:
+                pass
             return ''
 
-        # 테이블 스타일 적용 (applymap 대신 map 사용으로 오류 해결)
+        # 데이터 변환 (화살표 추가)
+        display_df['전일대비'] = display_df['전일대비'].apply(format_delta)
+
+        # 테이블 출력
         st.dataframe(
-            display_df.style.format("{:,.2f}").map(color_delta, subset=['전일대비']),
+            display_df.style.format({"환율(종가)": "{:,.2f}"})
+            .applymap(color_delta, subset=['전일대비']),
             use_container_width=True
         )
 
-        st.info("💡 '전일대비' 열의 색상을 통해 환율 변동을 확인하세요!")
+        st.info("💡 빨간색(▲)은 환율 상승, 파란색(▼)은 환율 하락을 나타냅니다.")
     else:
         st.error("데이터를 가져오지 못했습니다.")
 except Exception as e:
