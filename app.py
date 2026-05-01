@@ -42,7 +42,7 @@ try:
         ax.xaxis.set_major_locator(mdates.MonthLocator(bymonthday=1))
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
         
-        ax.set_ylim(1000, 1150)
+        ax.set_ylim(1000, 1120)
         ax.grid(True, linestyle='--', alpha=0.5)
         plt.xticks(rotation=0) 
         st.pyplot(fig)
