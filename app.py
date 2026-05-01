@@ -20,53 +20,64 @@ try:
         df.index = pd.to_datetime(df.index)
         prices = df['Close']
         
-        # 최신 환율 정보
+        # 현재 환율 정보
         current_val = float(prices.iloc[-1].values[0]) if hasattr(prices.iloc[-1], 'values') else float(prices.iloc[-1])
         prev_val = float(prices.iloc[-2].values[0]) if len(prices) > 1 else current_val
         delta = current_val - prev_val
         
         # 연도 생략 날짜 (%m-%d)
         last_date_display = prices.index[-1].strftime('%m-%d')
+        
+        # 상단 지표 (상승 빨강 / 하락 파랑 적용)
         st.metric(label=f"현재 환율 ({last_date_display} 기준)", 
                   value=f"{current_val:,.2f} 원", 
                   delta=f"{delta:+.2f} 원")
 
-        # 3. 그래프 표시 (데이터는 Daily, 라벨만 Monthly)
+        # 3. 그래프 표시 (데이터는 Daily 유지, 라벨만 월별 1일)
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.plot(prices.index, prices.values, color='#0077b6', linewidth=2)
         ax.fill_between(prices.index, prices.values.flatten(), color='#0077b6', alpha=0.1)
 
-        # --- 이 부분이 핵심입니다 ---
-        # x축 라벨을 매월 1일(MonthLocator)로 설정
+        # 하단 눈금을 매월 1일로 설정 (연도 제외 %m-%d)
         ax.xaxis.set_major_locator(mdates.MonthLocator(bymonthday=1))
-        # 라벨 형식을 연도 제외 월-일(%m-%d)로 설정
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d'))
         
         ax.set_ylim(1000, 1100)
         ax.grid(True, linestyle='--', alpha=0.5)
-        plt.xticks(rotation=0) # 날짜 정자로 표시
+        plt.xticks(rotation=0) 
         st.pyplot(fig)
 
-        # 4. 하단 상세 내역 (표에서도 15일 데이터만 제외하거나 전체 유지)
+        # 4. 상세 내역 (상승 빨강 삼각형, 하락 파랑 삼각형 적용)
         st.subheader("📅 일자별 환율 상세 내역")
         
         display_df = pd.DataFrame(prices)
         display_df.columns = ['환율(종가)']
         display_df['전일대비'] = display_df['환율(종가)'].diff()
         
-        # 표의 날짜도 연도 생략
+        # 날짜 인덱스에서 연도 생략
         display_df.index = display_df.index.strftime('%m-%d')
-        
-        # 표에서는 15일 데이터를 제외하고 싶으시면 아래 주석을 해제하세요
-        # display_df = display_df[display_df.index.str.slice(3) != "15"]
 
-        def style_delta(val):
-            if val > 0: return f"▲ {val:+.2f}"
-            elif val < 0: return f"▼ {val:+.2f}"
+        # 등락 표시 함수 (삼각형 및 색상 로직)
+        def format_delta_text(val):
+            if pd.isna(val): return "-"
+            if val > 0: return f"▲ {val:+.2f}" # 상승 빨강 예정
+            elif val < 0: return f"▼ {val:+.2f}" # 하락 파랑 예정
             return f"{val:,.2f}"
 
-        display_df['전일대비'] = display_df['전일대비'].apply(style_delta)
-        st.dataframe(display_df.sort_index(ascending=False), use_container_width=True)
+        # 스타일 지정 함수 (상승 빨강, 하락 파랑)
+        def style_delta_color(val):
+            if '▲' in str(val): return 'color: red;'
+            elif '▼' in str(val): return 'color: blue;'
+            return ''
+
+        display_df['전일대비'] = display_df['전일대비'].apply(format_delta_text)
+
+        # 표 출력
+        st.dataframe(
+            display_df.sort_index(ascending=False).style.format({"환율(종가)": "{:,.2f}"})
+            .map(style_delta_color, subset=['전일대비']),
+            use_container_width=True
+        )
 
     else:
         st.error("데이터 로드 실패")
