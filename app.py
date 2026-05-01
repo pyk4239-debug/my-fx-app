@@ -12,7 +12,7 @@ st.set_page_config(page_title="캐나다 환율", page_icon="🇨🇦", layout="
 st.markdown('<html lang="ko">', unsafe_allow_html=True)
 st.title("🇨🇦 실시간 CAD/KRW 환율 모니터")
 
-# 2. 데이터 가져오기 (토론토 기준 4월 30일 목요일 종가 반영)
+# 2. 데이터 가져오기 (2026년 1월부터)
 ticker = "CADKRW=X"
 try:
     df = yf.download(ticker, start="2026-01-01", auto_adjust=True)
@@ -20,39 +20,37 @@ try:
     if not df.empty:
         df.index = pd.to_datetime(df.index)
         
-        # [수정] 15일 데이터 제외
-        df = df[df.index.day != 15]
-        prices = df['Close']
+        # [핵심 로직] 매월 1일 데이터만 필터링 (월별 전환)
+        df_monthly = df[df.index.day == 1].copy()
         
-        current_val = float(prices.iloc[-1].values[0]) if hasattr(prices.iloc[-1], 'values') else float(prices.iloc[-1])
-        prev_val = float(prices.iloc[-2].values[0]) if len(prices) > 1 and hasattr(prices.iloc[-2], 'values') else (float(prices.iloc[-2]) if len(prices) > 1 else current_val)
-        delta = current_val - prev_val
+        # 최신 데이터(오늘)가 1일이 아니더라도 마지막에 포함
+        if df.index[-1] not in df_monthly.index:
+            df_monthly = pd.concat([df_monthly, df.iloc[[-1]]]).sort_index()
+            df_monthly = df_monthly[~df_monthly.index.duplicated(keep='last')]
 
-        # [수정] 상단 표시 날짜에서 연도 생략
+        prices = df_monthly['Close']
+        current_val = float(prices.iloc[-1].values[0]) if hasattr(prices.iloc[-1], 'values') else float(prices.iloc[-1])
+        
+        # 연도 생략 표시 (%m-%d)
         last_date_display = prices.index[-1].strftime('%m-%d')
-        st.metric(label=f"현재 환율 ({last_date_display} 기준)", value=f"{current_val:,.2f} 원", delta=f"{delta:+.2f} 원")
+        st.metric(label=f"현재 환율 ({last_date_display} 기준)", value=f"{current_val:,.2f} 원")
 
         # 3. 그래프 표시
         fig, ax = plt.subplots(figsize=(10, 4))
-        # [수정] x축 라벨 연도 생략
         display_dates = prices.index.strftime('%m-%d')
-        ax.plot(display_dates, prices.values, color='#0077b6', linewidth=2)
+        ax.plot(display_dates, prices.values, color='#0077b6', marker='o', linewidth=2)
         ax.fill_between(display_dates, prices.values.flatten(), color='#0077b6', alpha=0.1)
-        
-        # x축 눈금 겹침 방지
-        n = len(display_dates)
-        ax.set_xticks(range(0, n, max(1, n//10)))
         ax.set_ylim(1000, 1100) 
         ax.grid(True, linestyle='--', alpha=0.5)
         st.pyplot(fig)
 
-        # 4. 상세 내역 (15일 제외 및 연도 생략)
-        st.subheader("📅 일자별 환율 상세 내역 (15일 제외)")
+        # 4. 상세 내역 (월별 기준)
+        st.subheader("📅 월별 환율 내역 (매월 1일 기준)")
         display_df = pd.DataFrame(prices)
         display_df.columns = ['환율(종가)']
-        display_df['전일대비'] = display_df['환율(종가)'].diff()
+        display_df['전월대비'] = display_df['환율(종가)'].diff()
         
-        # [수정] 인덱스 날짜에서 연도 생략
+        # 연도 생략 및 내림차순 정렬
         display_df.index = pd.to_datetime(display_df.index).strftime('%m-%d')
         display_df = display_df.sort_index(ascending=False)
 
@@ -63,11 +61,11 @@ try:
         def style_delta_color(val):
             return 'color: red;' if '▲' in str(val) else ('color: blue;' if '▼' in str(val) else '')
 
-        display_df['전일대비'] = display_df['전일대비'].apply(format_delta_text)
-        st.dataframe(display_df.style.format({"환율(종가)": "{:,.2f}"}).map(style_delta_color, subset=['전일대비']), use_container_width=True)
+        display_df['전월대비'] = display_df['전월대비'].apply(format_delta_text)
+        st.dataframe(display_df.style.format({"환율(종가)": "{:,.2f}"}).map(style_delta_color, subset=['전월대비']), use_container_width=True)
 
-        st.info("💡 토론토의 목요일은 지나갔고, 이제 금요일 아침 장이 열릴 준비를 하고 있습니다.")
+        st.info("💡 매월 1일 데이터를 기준으로 월간 환율 흐름을 보여줍니다.")
     else:
-        st.error("데이터 로드 실패")
+        st.error("데이터를 가져오지 못했습니다.")
 except Exception as e:
-    st.error(f"오류: {e}")
+    st.error(f"오류 발생: {e}")
